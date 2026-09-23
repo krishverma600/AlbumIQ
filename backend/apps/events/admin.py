@@ -4,8 +4,7 @@ from .models import Event, Guest
 
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
-    # Updated to match the new field names
-    list_display = ("event_name", "event_code", "admin", "event_date")
+    list_display = ("event_name", "event_code", "created_by", "event_date")
     list_filter = ("created_at",)
 
 

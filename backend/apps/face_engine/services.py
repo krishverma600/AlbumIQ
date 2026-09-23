@@ -14,6 +14,11 @@ except ImportError:  # pragma: no cover - handled at runtime
     face_recognition = None
 
 try:
+    from deepface import DeepFace
+except ImportError:  # pragma: no cover - handled at runtime
+    DeepFace = None
+
+try:
     import numpy as np
 except ImportError:  # pragma: no cover - handled at runtime
     np = None
@@ -43,6 +48,13 @@ def ensure_face_recognition() -> None:
     if face_recognition is None:
         raise FaceEngineUnavailable(
             "face_recognition is not installed. Install the native AI requirements or use the OpenCV fallback."
+        )
+
+
+def ensure_deepface() -> None:
+    if DeepFace is None:
+        raise FaceEngineUnavailable(
+            "deepface is not installed. Install backend/requirements-ai.txt."
         )
 
 
@@ -90,6 +102,35 @@ def extract_embeddings_with_face_recognition(image_path: str) -> list[DetectedFa
                     "right": int(right),
                     "bottom": int(bottom),
                     "left": int(left),
+                },
+            )
+        )
+
+    return results
+
+
+def extract_embeddings_with_deepface(image_path: str) -> list[DetectedFace]:
+    ensure_deepface()
+
+    representations = DeepFace.represent(
+        img_path=image_path,
+        model_name=getattr(settings, "DEEPFACE_MODEL", "ArcFace"),
+        detector_backend=getattr(settings, "DEEPFACE_DETECTOR_BACKEND", "opencv"),
+        enforce_detection=False,
+    )
+
+    results: list[DetectedFace] = []
+    for representation in representations:
+        embedding = _normalise_embedding(representation["embedding"])
+        area = representation.get("facial_area") or {}
+        results.append(
+            DetectedFace(
+                embedding_vector=embedding,
+                face_location={
+                    "top": int(area.get("y", 0)),
+                    "right": int(area.get("x", 0) + area.get("w", 0)),
+                    "bottom": int(area.get("y", 0) + area.get("h", 0)),
+                    "left": int(area.get("x", 0)),
                 },
             )
         )
@@ -147,12 +188,17 @@ def extract_embeddings(image_path: str) -> list[DetectedFace]:
     if provider == "face_recognition":
         return extract_embeddings_with_face_recognition(image_path)
 
+    if provider == "deepface":
+        return extract_embeddings_with_deepface(image_path)
+
     if provider == "opencv":
         return extract_embeddings_with_opencv(image_path)
 
     if provider == "auto":
         if face_recognition is not None:
             return extract_embeddings_with_face_recognition(image_path)
+        if DeepFace is not None:
+            return extract_embeddings_with_deepface(image_path)
         return extract_embeddings_with_opencv(image_path)
 
     raise FaceEngineUnavailable(f"Unsupported face engine provider: {settings.FACE_ENGINE_PROVIDER}")

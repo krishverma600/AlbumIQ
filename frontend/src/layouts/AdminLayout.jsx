@@ -15,7 +15,7 @@ function AdminLayout() {
   }
 
   return (
-    <div className="admin-shell page-shell">
+    <div className="site-atmosphere admin-shell page-shell">
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[280px_1fr]">
         <AdminSidebar
           adminName={adminSession.name}
@@ -28,7 +28,9 @@ function AdminLayout() {
 
         <div className="space-y-6">
           <AdminHeader />
-          <Outlet />
+          <div className="route-transition" key={location.pathname}>
+            <Outlet />
+          </div>
         </div>
       </div>
     </div>

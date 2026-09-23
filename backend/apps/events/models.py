@@ -9,21 +9,21 @@ def generate_event_code():
 
 
 class Event(models.Model):
-    admin = models.ForeignKey(
+    created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="events"
     )
 
-    # We added all the fields from your React frontend!
     event_name = models.CharField(max_length=255)
     event_date = models.DateField(null=True, blank=True)
     venue = models.CharField(max_length=255, blank=True, null=True)
     welcome_message = models.TextField(blank=True, null=True)
 
     event_code = models.CharField(
-        max_length=6, unique=True, default=generate_event_code
+        max_length=8, unique=True, default=generate_event_code
     )
+    guest_portal_url = models.URLField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    qr_code_image = models.ImageField(upload_to="qrcodes/", blank=True, null=True)
+    qr_code_url = models.CharField(max_length=500, blank=True)
 
     def __str__(self):
         return f"{self.event_name} ({self.event_code})"

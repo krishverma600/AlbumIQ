@@ -1,6 +1,6 @@
 import { ArrowLeft, Download, Images, RefreshCcw } from "lucide-react";
 import toast from "react-hot-toast";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import Button from "../../components/common/Button";
@@ -16,22 +16,24 @@ function GalleryPage() {
   const { guestFlow, guestSelfieFile, setGuestResults } = useAppState();
   const [selectedImage, setSelectedImage] = useState(null);
   const [isSearching, setIsSearching] = useState(false);
+  const searchedRequestRef = useRef("");
   const code = eventCode?.toUpperCase();
 
-  useEffect(() => {
-    let isMounted = true;
+  const searchRequestKey = guestSelfieFile
+    ? `${code}:${guestSelfieFile.name}:${guestSelfieFile.size}:${guestSelfieFile.lastModified}`
+    : "";
 
+  useEffect(() => {
     async function runSearch() {
-      if (!guestSelfieFile) {
+      if (!guestSelfieFile || searchedRequestRef.current === searchRequestKey) {
         return;
       }
+
+      searchedRequestRef.current = searchRequestKey;
 
       try {
         setIsSearching(true);
         const data = await searchPhotos({ eventCode: code, selfie: guestSelfieFile });
-        if (!isMounted) {
-          return;
-        }
 
         const matches = data.matched_images.map((item, index) => ({
           id: item.photo_id,
@@ -53,10 +55,6 @@ function GalleryPage() {
           toast.success("Search completed. No matching photos were found yet.");
         }
       } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
         const detail =
           error?.response?.data?.detail ||
           "Guest search could not complete right now.";
@@ -75,14 +73,15 @@ function GalleryPage() {
       }
     }
 
-    if (!guestFlow.matches.length && guestSelfieFile) {
+    if (
+      !guestFlow.matches.length &&
+      guestSelfieFile &&
+      searchedRequestRef.current !== searchRequestKey
+    ) {
       runSearch();
     }
 
-    return () => {
-      isMounted = false;
-    };
-  }, [code, guestFlow.matches.length, guestSelfieFile, setGuestResults]);
+  }, [code, guestFlow.matches.length, guestSelfieFile, searchRequestKey, setGuestResults]);
 
   const matches = useMemo(() => guestFlow.matches || [], [guestFlow.matches]);
   const canRetry = Boolean(guestSelfieFile);
@@ -135,6 +134,7 @@ function GalleryPage() {
                   className="mt-5"
                   onClick={async () => {
                     try {
+                      searchedRequestRef.current = "";
                       setIsSearching(true);
                       const data = await searchPhotos({ eventCode: code, selfie: guestSelfieFile });
                       const nextMatches = data.matched_images.map((item, index) => ({

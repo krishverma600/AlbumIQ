@@ -1,5 +1,6 @@
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
+import logging
 from rest_framework import permissions, response, status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.views import APIView
@@ -9,6 +10,9 @@ from apps.events.models import Event
 from .models import Photo
 from .serializers import PhotoSerializer, PhotoUploadSerializer
 from .tasks import process_photo_embeddings
+
+
+logger = logging.getLogger(__name__)
 
 
 class PhotoUploadAPIView(APIView):
@@ -34,7 +38,10 @@ class PhotoUploadAPIView(APIView):
                 original_filename=image.name,
             )
             created_photos.append(photo)
-            process_photo_embeddings.delay(str(photo.id))
+            try:
+                process_photo_embeddings.delay(str(photo.id))
+            except Exception:
+                logger.exception("Unable to queue photo processing for photo %s", photo.id)
 
         return response.Response(
             {

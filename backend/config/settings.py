@@ -1,6 +1,5 @@
 from pathlib import Path
 import os
-from pydoc import cli
 
 from dotenv import load_dotenv
 
@@ -67,14 +66,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-postgres_db = os.getenv("POSTGRES_DB")
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
@@ -132,17 +123,24 @@ TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER", "")
 PASSWORD_RESET_OTP_LENGTH = int(os.getenv("PASSWORD_RESET_OTP_LENGTH", "6"))
 PASSWORD_RESET_OTP_TTL_MINUTES = int(os.getenv("PASSWORD_RESET_OTP_TTL_MINUTES", "10"))
 
-# --- POSTGRESQL DATABASE ---
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "wedding_db"),
-        "USER": os.getenv("POSTGRES_USER", "postgres"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", ""),
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
-        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+if os.getenv("POSTGRES_HOST"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("POSTGRES_DB", "ai_wedding_photos"),
+            "USER": os.getenv("POSTGRES_USER", "postgres"),
+            "PASSWORD": os.getenv("POSTGRES_PASSWORD", ""),
+            "HOST": os.getenv("POSTGRES_HOST"),
+            "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # --- AWS S3 SETTINGS ---
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
@@ -152,20 +150,6 @@ AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-# --- FORCE SQLITE OVERRIDE ---
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
-
-# --- CELERY & REDIS SETTINGS ---
-# The full, correct URL with the SSL certificate fix (CERT_NONE) included!
-UPSTASH_URL = "rediss://default:gQAAAAAAAoJUAAIgcDJkYTBkMDIyY2MyOWI0MTI2OWQxNDRhNjA1OWUxM2E2Yw@composed-seagull-164436.upstash.io:6379?ssl_cert_reqs=CERT_NONE"
-
-CELERY_BROKER_URL = UPSTASH_URL
-CELERY_RESULT_BACKEND = UPSTASH_URL
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
