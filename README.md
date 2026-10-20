@@ -203,3 +203,4 @@ require a connected browser.
 ### Research evaluation
 
 Open [evaluation/model_accuracy.ipynb](evaluation/model_accuracy.ipynb) in VS Code to read current website activity, replay stored selfies, and display inline graphs. Add reviewed relevant photo IDs to measure recognition accuracy on those searches. See [evaluation/README.md](evaluation/README.md). No output directory is created.
+# AlbumIQ
