@@ -3,9 +3,10 @@ import os
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Resolve the same environment for the web server, workers, and notebook kernels.
+load_dotenv(BASE_DIR / ".env")
 
 
 def split_env_list(name: str, default: str = "") -> list[str]:
@@ -97,7 +98,7 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = split_env_list(
     "DJANGO_CORS_ALLOWED_ORIGINS",
-    "http://localhost:5173",
+    "http://localhost:5173,http://127.0.0.1:5173",
 )
 
 CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -110,12 +111,16 @@ CELERY_TASK_ALWAYS_EAGER = (
 CELERY_TASK_EAGER_PROPAGATES = True
 
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
-FACE_MATCH_THRESHOLD = float(os.getenv("FACE_MATCH_THRESHOLD", "0.45"))
+_face_match_threshold = os.getenv("FACE_MATCH_THRESHOLD", "").strip()
+FACE_MATCH_THRESHOLD = float(_face_match_threshold) if _face_match_threshold else None
 FACE_DETECTION_MODEL = os.getenv("FACE_DETECTION_MODEL", "hog")
-FACE_ENGINE_PROVIDER = os.getenv("FACE_ENGINE_PROVIDER", "auto")
-FACE_ENGINE_FALLBACK_TO_IMAGE = (
-    os.getenv("FACE_ENGINE_FALLBACK_TO_IMAGE", "True").lower() == "true"
-)
+DEEPFACE_MODEL = os.getenv("DEEPFACE_MODEL", "ArcFace")
+DEEPFACE_DETECTOR_BACKEND = os.getenv("DEEPFACE_DETECTOR_BACKEND", "yunet")
+# YuNet's default 0.9 misses smaller and profile faces. This affects detection
+# only; identity matching retains the recognition model's threshold.
+YUNET_SCORE_THRESHOLD = float(os.getenv("YUNET_SCORE_THRESHOLD", "0.8"))
+os.environ["yunet_score_threshold"] = str(YUNET_SCORE_THRESHOLD)
+FACE_ENGINE_PROVIDER = os.getenv("FACE_ENGINE_PROVIDER", "deepface")
 SMS_PROVIDER = os.getenv("SMS_PROVIDER", "")
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
@@ -149,7 +154,12 @@ AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME")
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
+if os.getenv("USE_S3", "False").lower() == "true":
+    STORAGES["default"] = {"BACKEND": "storages.backends.s3.S3Storage"}
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"

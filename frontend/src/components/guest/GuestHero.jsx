@@ -28,7 +28,7 @@ function GuestHero() {
             </p>
 
             <div className="reveal-up reveal-delay-4 mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link to="/event/DEMO24">
+              <Link to="/event">
                 <Button className="w-full sm:w-auto">
                   Start guest experience
                   <ArrowRight className="ml-2" size={18} />

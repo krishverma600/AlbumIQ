@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import Button from "../../components/common/Button";
 import SelfieDropzone from "../../components/guest/SelfieDropzone";
+import LiveSelfieCamera from "../../components/guest/LiveSelfieCamera";
 import { getEventByCode } from "../../services/eventService";
 import { useAppState } from "../../store/AppStateContext";
 import { formatDate, normaliseEventCode } from "../../utils/formatters";
@@ -13,9 +14,8 @@ import { weddingPhotos } from "../../assets/weddingVisuals";
 function SelfieUploadPage() {
   const { eventCode } = useParams();
   const navigate = useNavigate();
-  const { guestFlow, setGuestEvent, setGuestSelfie } = useAppState();
+  const { guestFlow, guestSelfieFile, setGuestEvent, setGuestSelfie } = useAppState();
   const [preview, setPreview] = useState(guestFlow.selfiePreview);
-  const [fileName, setFileName] = useState(guestFlow.selfieName);
   const [isLoadingEvent, setIsLoadingEvent] = useState(!guestFlow.event);
   const currentEventCode = normaliseEventCode(eventCode);
 
@@ -55,7 +55,6 @@ function SelfieUploadPage() {
   const handleFileSelected = (file) => {
     const nextPreview = URL.createObjectURL(file);
     setPreview(nextPreview);
-    setFileName(file.name);
     setGuestSelfie({ selfieName: file.name, selfiePreview: nextPreview, selfieFile: file });
     toast.success("Selfie added. You can continue to the gallery.");
   };
@@ -80,7 +79,8 @@ function SelfieUploadPage() {
           ) : null}
 
           <div className="mt-8">
-            <SelfieDropzone onFileSelected={handleFileSelected} />
+            <LiveSelfieCamera onFileSelected={handleFileSelected} />
+            <SelfieDropzone onFileSelected={handleFileSelected} capture={false} title="Or upload a reference photo" description="Choose a clear photo containing only the person you want to find in this event's album." />
           </div>
 
           <div className="mt-6 flex flex-col gap-4 rounded-[26px] border border-[rgba(117,82,65,0.12)] bg-white/75 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -126,14 +126,14 @@ function SelfieUploadPage() {
           <div className="mt-6 rounded-[24px] border border-[rgba(117,82,65,0.12)] bg-white/85 p-5">
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">Ready for AI match</p>
             <h3 className="mt-3 text-2xl font-semibold text-[var(--text)]">
-              {fileName || "No selfie selected yet"}
+              {guestSelfieFile ? "Your reference photo is selected" : "No selfie selected yet"}
             </h3>
             <p className="mt-2 text-sm leading-6 text-[var(--muted)]">
-              The next screen will call the backend search API and display real matched photos for this event.
+              We compare your face with the faces in every processed photo of this event. The filename does not affect matching.
             </p>
             <Button
               className="mt-6 w-full"
-              disabled={!preview || isLoadingEvent}
+              disabled={!guestSelfieFile || isLoadingEvent}
               onClick={() => {
                 if (!preview) {
                   toast.error("Please upload a selfie first");

@@ -14,13 +14,13 @@ const iconMap = {
 
 function AdminSidebar({ adminName, onLogout }) {
   return (
-    <aside className="glass-panel flex h-full flex-col gap-6 lg:min-h-[calc(100vh-4rem)]">
+    <aside className="glass-panel flex min-w-0 flex-col gap-5 lg:sticky lg:top-6">
       <div className="flex items-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[var(--primary)] text-lg font-bold text-white">
           {initialsFromName(adminName)}
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">Admin</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">Photographer</p>
           <p className="text-lg font-semibold text-[var(--text)]">{adminName}</p>
         </div>
       </div>

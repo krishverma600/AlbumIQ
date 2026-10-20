@@ -21,6 +21,7 @@ function App() {
       <Routes>
         <Route element={<GuestLayout />}>
           <Route path="/" element={<HomePage />} />
+          <Route path="/event" element={<EventAccessPage />} />
           <Route path="/event/:eventCode" element={<EventAccessPage />} />
           <Route path="/upload-selfie/:eventCode" element={<SelfieUploadPage />} />
           <Route path="/gallery/:eventCode" element={<GalleryPage />} />

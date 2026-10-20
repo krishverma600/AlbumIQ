@@ -13,6 +13,7 @@ export async function uploadPhotos({ eventCode, files }) {
   });
 
   const { data } = await api.post('/photos/upload/', formData, {
+    timeout: 120000,
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 
@@ -21,5 +22,10 @@ export async function uploadPhotos({ eventCode, files }) {
 
 export async function getUploadStatus(eventId) {
   const { data } = await api.get(`/photos/status/${eventId}/`);
+  return data;
+}
+
+export async function importDrivePhotos({ eventCode, links }) {
+  const { data } = await api.post('/photos/import-drive/', { event_code: eventCode, links });
   return data;
 }

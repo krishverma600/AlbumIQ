@@ -1,7 +1,7 @@
 export const guestFlow = [
   { label: "Home", to: "/" },
-  { label: "Event Access", to: "/event/DEMO24" },
-  { label: "Guest Gallery", to: "/gallery/DEMO24" }
+  { label: "Event Access", to: "/event" },
+  { label: "Guest Gallery", to: "/event" }
 ];
 
 export const adminLinks = [

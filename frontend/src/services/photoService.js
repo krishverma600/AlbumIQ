@@ -1,5 +1,9 @@
 import api from "./api";
 
+export async function importDrivePhotos({ eventCode, links }) {
+  const { data } = await api.post("/photos/import-drive/", { event_code: eventCode, links });
+  return data;
+}
 
 export async function uploadPhotos({ eventCode, files }) {
   const formData = new FormData();
@@ -10,6 +14,7 @@ export async function uploadPhotos({ eventCode, files }) {
   });
 
   const { data } = await api.post("/photos/upload/", formData, {
+    timeout: 120000,
     headers: {
       "Content-Type": "multipart/form-data"
     }

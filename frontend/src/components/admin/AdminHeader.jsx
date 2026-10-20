@@ -1,29 +1,19 @@
-import { Bell, Search } from "lucide-react";
+import { Link, useLocation } from 'react-router-dom';
+import { useAppState } from '../../store/AppStateContext';
 
-function AdminHeader() {
-  return (
-    <div className="glass-panel flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <p className="pill">Admin Dashboard</p>
-        <h1 className="mt-4 text-3xl font-extrabold text-[var(--text)] sm:text-4xl">
-          Run event operations, uploads, and guest analytics from one place.
-        </h1>
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="flex items-center gap-3 rounded-full border border-[rgba(124,61,143,0.12)] bg-white px-4 py-3">
-          <Search size={16} className="text-[var(--muted)]" />
-          <span className="text-sm text-[var(--muted)]">Search events, uploads, guests</span>
-        </div>
-        <button
-          className="flex h-12 w-12 items-center justify-center rounded-full border border-[rgba(124,61,143,0.12)] bg-white text-[var(--primary)]"
-          type="button"
-        >
-          <Bell size={18} />
-        </button>
-      </div>
-    </div>
-  );
+const pages = {
+  '/admin/dashboard': ['Your studio', 'A clear view of your events and photos.'],
+  '/admin/create-event': ['Create an event', 'Set up an album and invite your guests.'],
+  '/admin/upload-photos': ['Photo manager', 'Upload, review, and share your event photos.'],
+  '/admin/analytics': ['Event insights', 'See how your events are growing.'],
+  '/admin/profile': ['Studio profile', 'Manage your details and contact information.'],
+};
+export default function AdminHeader() {
+  const { pathname } = useLocation();
+  const { adminSession } = useAppState();
+  const [title, subtitle] = pages[pathname] || pages['/admin/dashboard'];
+  return <header className="flex min-w-0 flex-wrap items-center justify-between gap-4 rounded-[24px] border bg-white/80 px-5 py-4 sm:px-6">
+    <div className="min-w-0"><h1 className="text-xl font-bold sm:text-2xl">{title}</h1><p className="mt-1 text-sm text-[var(--muted)]">{subtitle}</p></div>
+    <Link to="/admin/profile" className="max-w-full truncate rounded-full border bg-white px-4 py-2 text-sm font-semibold">{adminSession.name}</Link>
+  </header>;
 }
-
-export default AdminHeader;

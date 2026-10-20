@@ -25,6 +25,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow AlbumIQ to take a selfie to find your event photos.",
+          "photosPermission": "Allow AlbumIQ to choose event photos and reference selfies.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }

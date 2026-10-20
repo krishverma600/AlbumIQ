@@ -16,6 +16,8 @@ class EventSerializer(serializers.ModelSerializer):
             "id",
             "event_name",
             "event_date",
+            "venue",
+            "welcome_message",
             "event_code",
             "guest_portal_url",
             "qr_url",

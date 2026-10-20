@@ -1,9 +1,9 @@
+"""Manual broker connectivity check: python test_redis.py."""
+import os
 import redis
+from dotenv import load_dotenv
 
-url = "rediss://default:gQAAAAAAAoJUAAIgcDJkYTBkMDIyY2MyOWI0MTI2OWQxNDRhNjA1OWUxM2E2Yw@composed-seagull-164436.upstash.io:6379?ssl_cert_reqs=none"
-
-print("Connecting...")
-r = redis.from_url(url)
-print("Pinging...")
-result = r.ping()
-print("Result:", result)
+if __name__ == "__main__":
+    load_dotenv()
+    client = redis.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
+    print("Redis ping:", client.ping())

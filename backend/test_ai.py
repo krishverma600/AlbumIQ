@@ -1,11 +1,11 @@
-# test_ai.py
-from deepface import DeepFace
-
-# Extract 512-dimensional embeddings using ArcFace
-print("Loading model and extracting face...")
-embedding = DeepFace.represent(img_path="test.jpg", model_name="ArcFace")[0][
-    "embedding"
-]
-
-print(f"Success! Extracted {len(embedding)} dimensions.")
-# If this prints "Success! Extracted 512 dimensions.", the AI is working perfectly!
+"""Manual AI check: python test_ai.py [image_path]."""
+if __name__ == "__main__":
+    import os
+    import sys
+    import django
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+    django.setup()
+    from apps.face_engine.services import embedding_model_key, extract_embeddings
+    faces = extract_embeddings(sys.argv[1] if len(sys.argv) > 1 else "test.jpg")
+    print("Model:", embedding_model_key())
+    print("Faces:", len(faces), "Embedding dimensions:", [len(face.embedding_vector) for face in faces])

@@ -1,12 +1,12 @@
 import { ArrowRight, KeyRound } from "lucide-react";
 import toast from "react-hot-toast";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import { weddingPhotos } from "../../assets/weddingVisuals";
 import Button from "../../components/common/Button";
 import Loader from "../../components/common/Loader";
-import QRScannerPanel from "../../components/guest/QRScannerPanel";
+const QRScannerPanel = lazy(() => import("../../components/guest/QRScannerPanel"));
 import { getEventByCode } from "../../services/eventService";
 import { useAppState } from "../../store/AppStateContext";
 import { formatDate, normaliseEventCode } from "../../utils/formatters";
@@ -115,6 +115,7 @@ function EventAccessPage() {
           </div>
         </div>
 
+        <Suspense fallback={<div className="editorial-panel self-start text-sm" role="status">Loading QR options...</div>}>
         <QRScannerPanel
           active={scannerOpen}
           onScan={(scannedCode) => {
@@ -125,6 +126,7 @@ function EventAccessPage() {
           }}
           onToggle={() => setScannerOpen((current) => !current)}
         />
+        </Suspense>
       </div>
     </section>
   );

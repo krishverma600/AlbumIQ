@@ -14,6 +14,7 @@ class Photo(models.Model):
     image = models.ImageField(upload_to="event_photos/")
     original_filename = models.CharField(max_length=255, blank=True)
     processing_status = models.CharField(max_length=32, default="QUEUED")
+    processing_error = models.TextField(blank=True, default="")
     faiss_id = models.BigIntegerField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 

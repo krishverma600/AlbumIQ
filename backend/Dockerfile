@@ -14,8 +14,9 @@ RUN apt-get update \
         libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY requirements.txt requirements-ai-deepface.txt ./
+RUN pip install --upgrade pip \
+    && pip install -r requirements.txt -r requirements-ai-deepface.txt
 
 COPY . .
 

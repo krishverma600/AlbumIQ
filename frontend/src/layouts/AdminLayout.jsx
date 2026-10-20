@@ -16,17 +16,17 @@ function AdminLayout() {
 
   return (
     <div className="site-atmosphere admin-shell page-shell">
-      <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[280px_1fr]">
+      <div className="mx-auto grid max-w-7xl gap-6 items-start lg:grid-cols-[240px_minmax(0,1fr)]">
         <AdminSidebar
           adminName={adminSession.name}
           onLogout={() => {
             logoutAdmin();
-            toast.success("Admin session cleared");
+            toast.success("You have signed out");
             navigate("/admin/login");
           }}
         />
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <AdminHeader />
           <div className="route-transition" key={location.pathname}>
             <Outlet />

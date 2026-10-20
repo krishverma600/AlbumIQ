@@ -10,6 +10,8 @@ export async function searchPhotos({ eventCode, selfie }) {
   });
 
   const { data } = await api.post('/search/', formData, {
+    skipAuth: true,
+    timeout: 120000,
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return data;

@@ -1,46 +1,53 @@
-import { Download, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import DownloadButton from '../common/DownloadButton';
 
-function GalleryModal({ item, onClose }) {
-  if (!item) {
-    return null;
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(29,18,36,0.78)] px-4 py-6" role="dialog">
-      <div className="relative w-full max-w-4xl overflow-hidden rounded-[30px] bg-white shadow-[0_28px_90px_rgba(0,0,0,0.35)]">
-        <button
-          className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-white"
-          onClick={onClose}
-          type="button"
-        >
-          <X size={18} />
-        </button>
-
-        <img alt={item.title} className="h-[320px] w-full object-cover sm:h-[520px]" src={item.image} />
-
-        <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
-              Match confidence {item.score}
-            </p>
-            <h3 className="mt-2 text-3xl font-semibold text-[var(--text)]">{item.title}</h3>
-            <p className="mt-2 text-sm text-[var(--muted)]">Captured at {item.time}</p>
-          </div>
-
-          <a
-            className="inline-flex items-center justify-center rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-white"
-            download
-            href={item.image}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <Download className="mr-2" size={18} />
-            Download photo
-          </a>
+export default function GalleryModal({ item, onClose, onPrevious, onNext, position }) {
+  const dialogRef = useRef(null);
+  const actionsRef = useRef({ onClose, onPrevious, onNext });
+  actionsRef.current = { onClose, onPrevious, onNext };
+  useEffect(() => {
+    if (!item) return;
+    const previousFocus = document.activeElement;
+    const oldOverflow = document.body.style.overflow;
+    const oldHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    dialogRef.current?.focus();
+    const onKey = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); actionsRef.current.onClose(); }
+      if (event.key === 'ArrowLeft') actionsRef.current.onPrevious?.();
+      if (event.key === 'ArrowRight') actionsRef.current.onNext?.();
+      if (event.key === 'Tab') {
+        const buttons = [...dialogRef.current.querySelectorAll('button:not(:disabled),a[href]')];
+        if (!buttons.length) return;
+        const first = buttons[0], last = buttons[buttons.length - 1];
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === dialogRef.current)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = oldOverflow; document.documentElement.style.overflow = oldHtmlOverflow; document.removeEventListener('keydown', onKey); previousFocus?.focus(); };
+  }, [Boolean(item)]);
+  if (!item) return null;
+  return createPortal(
+    <div className="photo-lightbox" onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Photo preview" className="photo-lightbox-dialog">
+        <header className="flex min-w-0 items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
+          <div className="min-w-0"><h2 className="truncate text-base font-semibold">{item.title || 'Photo preview'}</h2>{position ? <p className="text-xs text-[var(--muted)]">{position}</p> : null}</div>
+          <button type="button" aria-label="Close preview" className="icon-button shrink-0" onClick={onClose}><X size={22} /></button>
+        </header>
+        <div className="photo-lightbox-image">
+          <img src={item.image} alt={item.title || 'Photo preview'} />
+          {onPrevious ? <button aria-label="Previous photo" className="lightbox-arrow left-2" onClick={onPrevious}><ChevronLeft /></button> : null}
+          {onNext ? <button aria-label="Next photo" className="lightbox-arrow right-2" onClick={onNext}><ChevronRight /></button> : null}
         </div>
+        <footer className="flex items-center justify-between gap-3 border-t px-4 py-3 sm:px-5">
+          <p className="min-w-0 truncate text-sm text-[var(--muted)]">Full photo · Original resolution</p>
+          <DownloadButton photo={item} variant="primary" className="shrink-0" />
+        </footer>
       </div>
-    </div>
+    </div>, document.body
   );
 }
-
-export default GalleryModal;

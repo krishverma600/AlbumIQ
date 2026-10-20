@@ -1,12 +1,11 @@
+from contextlib import contextmanager
+from tempfile import NamedTemporaryFile
+from pathlib import Path
 from dataclasses import dataclass
 import math
 
 from django.conf import settings
-
-try:
-    import cv2
-except ImportError:  # pragma: no cover - handled at runtime
-    cv2 = None
+from PIL import Image, ImageOps
 
 try:
     import face_recognition
@@ -39,15 +38,10 @@ def ensure_numpy() -> None:
         raise FaceEngineUnavailable("numpy is required for face embedding generation.")
 
 
-def ensure_opencv() -> None:
-    if cv2 is None:
-        raise FaceEngineUnavailable("opencv-python is not installed.")
-
-
 def ensure_face_recognition() -> None:
     if face_recognition is None:
         raise FaceEngineUnavailable(
-            "face_recognition is not installed. Install the native AI requirements or use the OpenCV fallback."
+            "face_recognition is not installed. Install backend/requirements-ai.txt."
         )
 
 
@@ -65,23 +59,6 @@ def _normalise_embedding(vector) -> list[float]:
     if norm > 0:
         array = array / norm
     return [float(value) for value in array.tolist()]
-
-
-def _build_opencv_embedding(face_region) -> list[float]:
-    ensure_numpy()
-    face = cv2.resize(face_region, (16, 16), interpolation=cv2.INTER_AREA)
-    face = cv2.equalizeHist(face)
-    face = face.astype("float32") / 255.0
-    return _normalise_embedding(face.flatten())
-
-
-def _load_opencv_detector():
-    ensure_opencv()
-    cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-    detector = cv2.CascadeClassifier(cascade_path)
-    if detector.empty():
-        raise FaceEngineUnavailable("OpenCV Haar cascade detector could not be loaded.")
-    return detector
 
 
 def extract_embeddings_with_face_recognition(image_path: str) -> list[DetectedFace]:
@@ -112,12 +89,18 @@ def extract_embeddings_with_face_recognition(image_path: str) -> list[DetectedFa
 def extract_embeddings_with_deepface(image_path: str) -> list[DetectedFace]:
     ensure_deepface()
 
-    representations = DeepFace.represent(
-        img_path=image_path,
-        model_name=getattr(settings, "DEEPFACE_MODEL", "ArcFace"),
-        detector_backend=getattr(settings, "DEEPFACE_DETECTOR_BACKEND", "opencv"),
-        enforce_detection=False,
-    )
+    try:
+        representations = DeepFace.represent(
+            img_path=image_path,
+            model_name=settings.DEEPFACE_MODEL,
+            detector_backend=settings.DEEPFACE_DETECTOR_BACKEND,
+            enforce_detection=True,
+        )
+
+    except ValueError as exc:
+        if "face could not be detected" in str(exc).lower():
+            return []
+        raise
 
     results: list[DetectedFace] = []
     for representation in representations:
@@ -138,70 +121,62 @@ def extract_embeddings_with_deepface(image_path: str) -> list[DetectedFace]:
     return results
 
 
-def extract_embeddings_with_opencv(image_path: str) -> list[DetectedFace]:
-    ensure_opencv()
-    ensure_numpy()
-
-    detector = _load_opencv_detector()
-    image = cv2.imread(image_path)
-    if image is None:
-        raise FaceEngineUnavailable("OpenCV could not read the supplied image.")
-
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    detections = detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(48, 48))
-
-    results: list[DetectedFace] = []
-    for x, y, width, height in detections:
-        face_region = gray[y : y + height, x : x + width]
-        results.append(
-            DetectedFace(
-                embedding_vector=_build_opencv_embedding(face_region),
-                face_location={
-                    "top": int(y),
-                    "right": int(x + width),
-                    "bottom": int(y + height),
-                    "left": int(x),
-                },
-            )
-        )
-
-    if results or not settings.FACE_ENGINE_FALLBACK_TO_IMAGE:
-        return results
-
-    height, width = gray.shape
-    return [
-        DetectedFace(
-            embedding_vector=_build_opencv_embedding(gray),
-            face_location={
-                "top": 0,
-                "right": int(width),
-                "bottom": int(height),
-                "left": 0,
-            },
-        )
-    ]
+def embedding_model_key() -> str:
+    provider = settings.FACE_ENGINE_PROVIDER.lower()
+    if provider == "auto":
+        provider = "face_recognition" if face_recognition is not None else "deepface"
+    if provider == "face_recognition":
+        ensure_face_recognition()
+        return "face_recognition:dlib-v1"
+    if provider == "deepface":
+        ensure_deepface()
+        return f"deepface:{settings.DEEPFACE_MODEL}:{settings.DEEPFACE_DETECTOR_BACKEND}"
+    raise FaceEngineUnavailable("Use face_recognition or deepface for identity matching. OpenCV pixel matching is disabled.")
 
 
 def extract_embeddings(image_path: str) -> list[DetectedFace]:
-    provider = settings.FACE_ENGINE_PROVIDER.lower()
+    model = embedding_model_key()
+    extractor = (extract_embeddings_with_face_recognition
+                 if model.startswith("face_recognition:") else extract_embeddings_with_deepface)
+    faces = extractor(image_path)
+    if faces:
+        return faces
+    # Camera images can be stored sideways even without an EXIF orientation tag.
+    # Retry upright orientations; never substitute a whole-image embedding.
+    with Image.open(image_path) as image:
+        width, height = image.size
+        for angle in (90, 180, 270):
+            with NamedTemporaryFile(suffix=".jpg") as rotated:
+                image.convert("RGB").rotate(angle, expand=True).save(rotated, format="JPEG")
+                rotated.flush()
+                faces = extractor(rotated.name)
+            if faces:
+                for face in faces:
+                    box = face.face_location
+                    left, top, right, bottom = (box["left"], box["top"], box["right"], box["bottom"])
+                    if angle == 90:
+                        bounds = (width - bottom, left, width - top, right)
+                    elif angle == 180:
+                        bounds = (width - right, height - bottom, width - left, height - top)
+                    else:
+                        bounds = (top, height - right, bottom, height - left)
+                    face.face_location = dict(zip(("left", "top", "right", "bottom"), bounds))
+                return faces
+    return []
 
-    if provider == "face_recognition":
-        return extract_embeddings_with_face_recognition(image_path)
 
-    if provider == "deepface":
-        return extract_embeddings_with_deepface(image_path)
-
-    if provider == "opencv":
-        return extract_embeddings_with_opencv(image_path)
-
-    if provider == "auto":
-        if face_recognition is not None:
-            return extract_embeddings_with_face_recognition(image_path)
-        if DeepFace is not None:
-            return extract_embeddings_with_deepface(image_path)
-        return extract_embeddings_with_opencv(image_path)
-
-    raise FaceEngineUnavailable(f"Unsupported face engine provider: {settings.FACE_ENGINE_PROVIDER}")
+@contextmanager
+def local_image_path(image):
+    """Support both local storage and remote storage without relying on .path."""
+    with NamedTemporaryFile(suffix=Path(image.name).suffix or ".jpg") as temporary:
+        with image.open("rb") as source:
+            for chunk in source.chunks():
+                temporary.write(chunk)
+        temporary.flush()
+        with Image.open(temporary.name) as source:
+            upright = ImageOps.exif_transpose(source).convert("RGB")
+        upright.save(temporary.name, format="JPEG", quality=95)
+        yield temporary.name
 
 
 def euclidean_distance(source: list[float], target: list[float]) -> float:
@@ -209,6 +184,22 @@ def euclidean_distance(source: list[float], target: list[float]) -> float:
         raise ValueError("Embeddings must share the same length.")
 
     return math.sqrt(sum((left - right) ** 2 for left, right in zip(source, target)))
+
+
+def matching_threshold() -> float:
+    """Use the recognition model's threshold for the actual embedding metric."""
+    if settings.FACE_MATCH_THRESHOLD is not None:
+        threshold = settings.FACE_MATCH_THRESHOLD
+    elif embedding_model_key().startswith("deepface:"):
+        # DeepFace vectors are L2-normalized above; raw-Euclidean/cosine cutoffs
+        # must not be applied to their normalized Euclidean distance.
+        from deepface.modules.verification import find_threshold
+        threshold = find_threshold(settings.DEEPFACE_MODEL, "euclidean_l2")
+    else:
+        threshold = 0.6
+    if not math.isfinite(threshold) or threshold <= 0:
+        raise FaceEngineUnavailable("Face matching threshold must be a positive finite number.")
+    return threshold
 
 
 def similarity_from_distance(distance: float, threshold: float) -> float:
@@ -221,6 +212,8 @@ def find_matches(query_embedding: list[float], candidate_embeddings, threshold: 
     matches = []
 
     for candidate in candidate_embeddings:
+        if len(query_embedding) != len(candidate.embedding_vector):
+            continue
         distance = euclidean_distance(query_embedding, candidate.embedding_vector)
         if distance <= threshold:
             matches.append(

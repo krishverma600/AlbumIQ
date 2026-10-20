@@ -282,3 +282,14 @@ select {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Keep intrinsic image sizes and long event links from stretching grid tracks. */
+html { scrollbar-gutter: stable; }
+img { max-width: 100%; }
+button:focus-visible, a:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+.icon-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; background: #f4eee9; color: var(--text); }
+.photo-lightbox { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(24, 19, 23, .88); overscroll-behavior: contain; }
+.photo-lightbox-dialog { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; width: min(1100px, 100%); height: min(88dvh, 900px); max-height: calc(100dvh - 24px); min-height: 0; overflow: hidden; border-radius: 22px; background: #fffdfa; box-shadow: 0 30px 90px #0006; outline: none; }
+.photo-lightbox-image { position: relative; min-height: 0; overflow: hidden; background: #171515; }
+.photo-lightbox-image img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.lightbox-arrow { position: absolute; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; height: 42px; width: 42px; border-radius: 999px; background: rgba(255,255,255,.9); color: #30241e; }

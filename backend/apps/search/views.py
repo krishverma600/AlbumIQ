@@ -8,7 +8,7 @@ from apps.face_engine.services import FaceEngineUnavailable
 
 from .models import GuestSearch
 from .serializers import GuestSearchRequestSerializer
-from .services import run_guest_search
+from .services import album_search_status, run_guest_search
 
 
 class GuestSearchAPIView(APIView):
@@ -40,6 +40,7 @@ class GuestSearchAPIView(APIView):
             payload.append(
                 {
                     "photo_id": photo.id,
+                    "filename": photo.original_filename,
                     "image_url": image_url,
                     "similarity": match["similarity"],
                 }
@@ -50,6 +51,7 @@ class GuestSearchAPIView(APIView):
                 "search_id": str(guest_search.id),
                 "matched_count": len(payload),
                 "matched_images": payload,
+                "album_status": album_search_status(event),
             }
         )
 

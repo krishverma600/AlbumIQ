@@ -13,12 +13,12 @@ function HomePage() {
       <section className="page-shell pt-0">
         <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="editorial-panel reveal-up">
-            <span className="pill">Why guests understand it faster</span>
+            <span className="pill">Your memories, made personal</span>
             <h2 className="section-heading mt-6 max-w-3xl">
-              The product should feel like a wedding service, not like a software demo.
+              Find the moments you were part of.
             </h2>
             <p className="subtle-copy mt-5 max-w-2xl">
-              We keep the guest flow short, visual, and reassuring. The language is simpler, the key steps are visible, and the event feels personalized from the very first screen.
+              Enter your event code or scan its QR, add a clear selfie, and discover your photos. Preview your favourites and download them to keep.
             </p>
 
             <div className="stagger-list mt-8 grid gap-4 md:grid-cols-3">
@@ -58,12 +58,12 @@ function HomePage() {
         <div className="mx-auto max-w-7xl">
           <div className="reveal-up mb-6 flex items-end justify-between gap-4">
             <div>
-              <span className="pill">Photo-led understanding</span>
-              <h2 className="section-heading mt-5">What the platform feels like at a glance.</h2>
+              <span className="pill">Wedding memories</span>
+              <h2 className="section-heading mt-5">From the ceremony to the celebration.</h2>
             </div>
-            <Link to="/event/DEMO24">
+            <Link to="/event">
               <Button variant="secondary">
-                Try the guest flow
+                Find my photos
                 <ArrowRight className="ml-2" size={18} />
               </Button>
             </Link>

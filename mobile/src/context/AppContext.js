@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { loadSession } from '../lib/session';
 
@@ -26,6 +26,10 @@ export function AppProvider({ children }) {
     bootstrap();
   }, []);
 
+  const setGuestResults = useCallback((payload) => {
+    setGuestState((current) => ({ ...current, ...payload }));
+  }, []);
+
   const value = useMemo(
     () => ({
       ready,
@@ -49,6 +53,7 @@ export function AppProvider({ children }) {
           ...current,
           eventCode,
           event,
+          selfie: null,
           matches: [],
           searchId: '',
           matchedCount: 0,
@@ -65,9 +70,7 @@ export function AppProvider({ children }) {
           searchError: '',
         }));
       },
-      setGuestResults(payload) {
-        setGuestState((current) => ({ ...current, ...payload }));
-      },
+      setGuestResults,
     }),
     [guestState, ready, session]
   );

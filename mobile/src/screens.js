@@ -15,7 +15,7 @@ import { useApp } from './context/AppContext';
 import { Card, HeroCard, Input, Label, PrimaryButton, Screen, SecondaryButton, Subtitle, Title } from './components/UI';
 import { createEvent, getEventByCode, listEvents } from './services/events';
 import { getProfile, login, logout, registerPhotographer, requestPasswordReset, resetPassword, updateProfile } from './services/auth';
-import { getUploadStatus, uploadPhotos } from './services/photos';
+import { getUploadStatus, importDrivePhotos, uploadPhotos } from './services/photos';
 import { searchPhotos } from './services/search';
 import { saveSession } from './lib/session';
 import { theme } from './theme';
@@ -125,12 +125,34 @@ export function GuestSelfieScreen({ navigation }) {
   const [selecting, setSelecting] = useState(false);
 
   async function chooseSelfie() {
-    setSelecting(true);
-    const assets = await pickImages({ multiple: false });
-    if (assets[0]) {
-      setGuestSelfie(assets[0]);
+    try {
+      setSelecting(true);
+      const assets = await pickImages({ multiple: false });
+      if (assets[0]) setGuestSelfie(assets[0]);
+    } catch (_error) {
+      Alert.alert('Photo unavailable', 'Please choose another photo and try again.');
+    } finally {
+      setSelecting(false);
     }
-    setSelecting(false);
+  }
+
+  async function takeSelfie() {
+    try {
+      setSelecting(true);
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Camera permission needed', 'Allow camera access in settings or choose a photo from your gallery.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'], cameraType: ImagePicker.CameraType.front, quality: 1,
+      });
+      if (!result.canceled && result.assets?.[0]) setGuestSelfie(result.assets[0]);
+    } catch (_error) {
+      Alert.alert('Camera unavailable', 'Check that your camera is available, or choose a photo from your gallery.');
+    } finally {
+      setSelecting(false);
+    }
   }
 
   return (
@@ -144,7 +166,8 @@ export function GuestSelfieScreen({ navigation }) {
       </HeroCard>
 
       <Card>
-        <PrimaryButton label="Choose selfie from gallery" loading={selecting} onPress={chooseSelfie} />
+        <PrimaryButton label="Take a live selfie" loading={selecting} onPress={takeSelfie} />
+        <PrimaryButton label="Choose selfie from gallery" disabled={selecting} onPress={chooseSelfie} style={{ marginTop: 12 }} />
         {guestState.selfie ? (
           <Image source={{ uri: guestState.selfie.uri }} style={styles.previewImage} />
         ) : (
@@ -161,7 +184,7 @@ export function GuestSelfieScreen({ navigation }) {
   );
 }
 
-export function GuestGalleryScreen() {
+export function GuestGalleryScreen({ navigation }) {
   const { guestState, setGuestResults } = useApp();
   const [loading, setLoading] = useState(false);
 
@@ -177,6 +200,7 @@ export function GuestGalleryScreen() {
           matches: data.matched_images || [],
           matchedCount: data.matched_count || 0,
           searchId: data.search_id || '',
+          albumStatus: data.album_status || null,
           searchError: '',
         });
       } catch (error) {
@@ -218,9 +242,13 @@ export function GuestGalleryScreen() {
 
       {!loading && !guestState.matches.length && !guestState.searchError ? (
         <Card>
-          <Subtitle>No matching photos were found yet for this selfie.</Subtitle>
+          <Subtitle>No matching face was found in this event's searchable photos.</Subtitle>
+          {guestState.albumStatus ? <Subtitle>{guestState.albumStatus.searchable} of {guestState.albumStatus.total} photos have searchable faces; {guestState.albumStatus.no_faces} have no detected faces and {guestState.albumStatus.pending} are still processing.</Subtitle> : null}
+          <Subtitle>The person must appear in the photographer's album. The reference selfie is not added to the album.</Subtitle>
         </Card>
       ) : null}
+
+      <SecondaryButton label="Choose another selfie" onPress={() => navigation.navigate('GuestSelfie')} />
 
       <FlatList
         data={guestState.matches}
@@ -229,7 +257,7 @@ export function GuestGalleryScreen() {
           <Card style={{ marginBottom: 14 }}>
             <Image source={{ uri: item.image_url }} style={styles.galleryImage} />
             <Subtitle style={{ marginTop: 10 }}>
-              Similarity: {Number(item.similarity || 0).toFixed(2)}%
+              Matching face found
             </Subtitle>
           </Card>
         )}
@@ -509,6 +537,8 @@ export function AdminUploadPhotosScreen() {
   const [statusData, setStatusData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [driveLinks, setDriveLinks] = useState('');
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -542,10 +572,30 @@ export function AdminUploadPhotosScreen() {
       }
     }
     loadStatus();
+    const timer = setInterval(loadStatus, 5000);
     return () => {
       mounted = false;
+      clearInterval(timer);
     };
   }, [selectedEvent]);
+
+  async function importFromDrive() {
+    const links = driveLinks.split(/\r?\n/).map((link) => link.trim()).filter(Boolean);
+    if (!selectedEvent || !links.length || links.length > 20) {
+      Alert.alert('Check photo links', 'Select a wedding and paste 1 to 20 individual Google Drive photo links.');
+      return;
+    }
+    try {
+      setImporting(true);
+      const data = await importDrivePhotos({ eventCode: selectedEvent.event_code, links });
+      if (data.queued) setDriveLinks('');
+      Alert.alert('Drive import', `${data.queued} photo(s) queued for import. ${data.failed} could not start. Follow progress below.`);
+    } catch (error) {
+      Alert.alert('Import failed', error?.response?.data?.detail || error?.response?.data?.links?.[0] || 'Unable to start the Drive import.');
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function chooseFiles() {
     const assets = await pickImages({ multiple: true });
@@ -559,8 +609,12 @@ export function AdminUploadPhotosScreen() {
     }
     try {
       setUploading(true);
-      await uploadPhotos({ eventCode: selectedEvent.event_code, files });
-      const refreshed = await getUploadStatus(selectedEvent.id);
+      const uploaded = await uploadPhotos({ eventCode: selectedEvent.event_code, files });
+      if (uploaded.failed) {
+        Alert.alert("Processing unavailable", `${uploaded.failed} photo(s) could not be queued. Check the worker connection.`);
+        return;
+      }
+      const refreshed = await getUploadStatus(selectedEvent.id).catch(() => null);
       setStatusData(refreshed);
       setFiles([]);
       Alert.alert('Upload complete', `Uploaded photos for ${selectedEvent.event_code}`);
@@ -601,6 +655,17 @@ export function AdminUploadPhotosScreen() {
       />
 
       <Card>
+        <Title style={{ fontSize: 22, lineHeight: 28 }}>Import from Google Drive</Title>
+        <Subtitle style={{ marginTop: 10 }}>Share each photo with “Anyone with the link” and allow downloads. Paste one photo link per line. Up to 20 photos, 20 MB each. Folder links are not supported.</Subtitle>
+        <Input multiline numberOfLines={4} autoCapitalize="none" autoCorrect={false}
+          placeholder="https://drive.google.com/file/d/.../view"
+          accessibilityLabel="Google Drive photo links"
+          value={driveLinks} onChangeText={setDriveLinks} editable={!importing} />
+        <PrimaryButton label="Import photos from Drive" loading={importing}
+          disabled={!selectedEvent || !driveLinks.trim()} onPress={importFromDrive} style={{ marginTop: 14 }} />
+      </Card>
+
+      <Card>
         <PrimaryButton label="Choose event photos" onPress={chooseFiles} />
         <Subtitle style={{ marginTop: 12 }}>{files.length ? `${files.length} file(s) selected` : 'No files selected yet.'}</Subtitle>
         <PrimaryButton label="Upload photos" loading={uploading} onPress={submit} style={{ marginTop: 14 }} />
@@ -610,6 +675,7 @@ export function AdminUploadPhotosScreen() {
         <Card key={photo.id}>
           <Subtitle>{photo.original_filename}</Subtitle>
           <Subtitle style={{ marginTop: 6 }}>Status: {photo.processing_status}</Subtitle>
+          {photo.processing_error ? <Subtitle style={{ marginTop: 6 }}>{photo.processing_error}</Subtitle> : null}
         </Card>
       ))}
     </Screen>

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { clearSession, loadSession } from "../utils/session";
 
@@ -12,7 +12,8 @@ const defaultGuestFlow = {
   matches: [],
   matchedCount: 0,
   searchId: "",
-  searchError: ""
+  searchError: "",
+  albumStatus: null
 };
 
 const defaultAdminSession = {
@@ -65,20 +66,32 @@ export function AppStateProvider({ children }) {
     window.localStorage.removeItem("wedding-ai-selected-admin-event-id");
   }, [selectedAdminEventId]);
 
+  const setGuestResults = useCallback(({ matches, matchedCount, searchId, searchError = "", albumStatus = null }) => {
+    setGuestFlow((current) => ({ ...current, matches, matchedCount, searchId, searchError, albumStatus }));
+  }, []);
+
+  const updateAdminProfile = useCallback((user) => {
+    setAdminSession((current) => ({ ...current, name: user?.full_name || user?.username || user?.email || "Studio Admin", user }));
+  }, []);
+
   const value = {
     guestFlow,
     guestSelfieFile,
     adminSession,
     selectedAdminEventId,
     setGuestEvent({ eventCode, event }) {
+      setGuestSelfieFile(null);
       setGuestFlow((current) => ({
         ...current,
         eventCode,
         event,
+        selfieName: "",
+        selfiePreview: "",
         matches: [],
         matchedCount: 0,
         searchId: "",
-        searchError: ""
+        searchError: "",
+        albumStatus: null
       }));
     },
     setGuestEventCode(eventCode) {
@@ -93,18 +106,11 @@ export function AppStateProvider({ children }) {
         matches: [],
         matchedCount: 0,
         searchId: "",
-        searchError: ""
+        searchError: "",
+        albumStatus: null
       }));
     },
-    setGuestResults({ matches, matchedCount, searchId, searchError = "" }) {
-      setGuestFlow((current) => ({
-        ...current,
-        matches,
-        matchedCount,
-        searchId,
-        searchError
-      }));
-    },
+    setGuestResults,
     clearGuestFlow() {
       setGuestSelfieFile(null);
       setGuestFlow(defaultGuestFlow);
@@ -117,13 +123,7 @@ export function AppStateProvider({ children }) {
         user
       });
     },
-    updateAdminProfile(user) {
-      setAdminSession((current) => ({
-        ...current,
-        name: user?.full_name || user?.username || user?.email || "Studio Admin",
-        user
-      }));
-    },
+    updateAdminProfile,
     logoutAdmin() {
       clearSession();
       setAdminSession(defaultAdminSession);

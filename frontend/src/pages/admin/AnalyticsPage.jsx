@@ -42,11 +42,11 @@ function AnalyticsPage() {
 
     return dashboardStats.map((stat) => {
       if (stat.label === "Total Events") {
-        return { ...stat, value: formatNumber(totalEvents), change: "Live backend value" };
+        return { ...stat, value: formatNumber(totalEvents), change: "Across your events" };
       }
 
       if (stat.label === "Total Uploads") {
-        return { ...stat, value: formatNumber(totalUploads), change: "Live backend value" };
+        return { ...stat, value: formatNumber(totalUploads), change: "Across your events" };
       }
 
       return stat;
@@ -76,8 +76,8 @@ function AnalyticsPage() {
             text: "Printed QR cards and entry signage are the easiest guest entry point on mobile."
           },
           {
-            title: "Operational recommendation",
-            text: "Enable batch indexing immediately after each ceremony segment to keep search results fresh."
+            title: "Photo delivery tip",
+            text: "Upload photos after each part of the celebration so guests can find their memories sooner."
           }
         ].map((item) => (
           <article key={item.title} className="glass-panel">

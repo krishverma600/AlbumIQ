@@ -1,0 +1,6 @@
+# Use backend/.venv with the existing production AI dependencies.
+numpy>=1.24,<3
+pandas>=2,<4
+matplotlib>=3.9,<4
+scikit-learn>=1.5,<2
+ipykernel>=6,<8

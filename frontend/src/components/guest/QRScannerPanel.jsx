@@ -1,55 +1,77 @@
-import { Camera, QrCode, ScanLine } from "lucide-react";
+import { Camera, ImageUp, QrCode } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import Button from '../common/Button';
+import { decodeQrPixels, eventCodeFromQr, readQrFile } from '../../utils/qr';
 
-function QRScannerPanel({ active, onScan, onToggle }) {
-  return (
-    <div className="editorial-panel">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-lg font-semibold text-[var(--text)]">Scan event QR</p>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            Guests can scan the invitation or printed standee to auto-fill the event code.
-          </p>
-        </div>
-        <button
-          className="flex h-11 w-11 items-center justify-center rounded-[16px] bg-[rgba(140,79,65,0.1)] text-[var(--primary)]"
-          onClick={onToggle}
-          type="button"
-        >
-          {active ? <Camera size={18} /> : <QrCode size={18} />}
-        </button>
-      </div>
+export default function QRScannerPanel({ active, onScan, onToggle }) {
+  const videoRef = useRef(null);
+  const fileRef = useRef(null);
+  const callbackRef = useRef(onScan);
+  const [error, setError] = useState('');
+  const [reading, setReading] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [success, setSuccess] = useState('');
+  callbackRef.current = onScan;
 
-      {active ? (
-        <div className="mt-5 rounded-[24px] border border-[rgba(117,82,65,0.14)] bg-[linear-gradient(180deg,rgba(140,79,65,0.08),rgba(215,143,98,0.12))] p-5">
-          <div className="flex h-64 flex-col items-center justify-center rounded-[20px] border border-dashed border-[rgba(117,82,65,0.2)] bg-white/70 text-center">
-            <div className="relative flex h-20 w-20 items-center justify-center rounded-[22px] bg-[rgba(140,79,65,0.1)] text-[var(--primary)]">
-              <QrCode size={30} />
-              <span className="absolute inset-x-3 top-1/2 h-0.5 -translate-y-1/2 animate-pulse bg-[var(--accent)]" />
-            </div>
-            <p className="mt-5 text-lg font-semibold text-[var(--text)]">QR scan UI is staged for integration.</p>
-            <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--muted)]">
-              For the frontend MVP, this panel demonstrates the camera-ready flow. We can wire a production QR scanner in the next integration pass.
-            </p>
-            <button
-              className="mt-5 inline-flex items-center rounded-full bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-white"
-              onClick={() => onScan("DEMO24")}
-              type="button"
-            >
-              <ScanLine className="mr-2" size={16} />
-              Use demo scan result
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-5 rounded-[24px] border border-dashed border-[rgba(117,82,65,0.18)] bg-[rgba(140,79,65,0.04)] px-5 py-8 text-center">
-          <p className="font-semibold text-[var(--text)]">QR scanner is ready when you are.</p>
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            Tap the icon to open the camera and read the event code directly.
-          </p>
-        </div>
-      )}
-    </div>
-  );
+  useEffect(() => {
+    if (!active) return;
+    let stopped = false, stream, timer;
+    setError(''); setSuccess(''); setStarting(true);
+    const canvas = document.createElement('canvas');
+    const stop = () => { stopped = true; window.clearTimeout(timer); stream?.getTracks().forEach((track) => track.stop()); };
+    async function start() {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access needs HTTPS or localhost. You can upload a QR image instead.');
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false });
+        if (stopped) { stream.getTracks().forEach((track) => track.stop()); return; }
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        if (stopped) return;
+        setStarting(false);
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        if (!context) throw new Error('QR camera scanning is unavailable. Upload a QR image instead.');
+        function scan() {
+          if (stopped) return;
+          const video = videoRef.current;
+          if (video?.videoWidth && video.readyState >= 2) {
+            const scale = Math.min(1, 900 / video.videoWidth);
+            canvas.width = Math.round(video.videoWidth * scale); canvas.height = Math.round(video.videoHeight * scale);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const image = context.getImageData(0, 0, canvas.width, canvas.height);
+            const result = decodeQrPixels(image.data, image.width, image.height);
+            if (result) {
+              try { const code = eventCodeFromQr(result); stop(); setSuccess(`Event code ${code} found. Select Continue to open the event.`); callbackRef.current(code); return; }
+              catch (error) { setError(error.message); }
+            }
+          }
+          timer = window.setTimeout(scan, 250);
+        }
+        scan();
+      } catch (error) {
+        stream?.getTracks().forEach((track) => track.stop());
+        if (!stopped) { setStarting(false); setError(error.name === 'NotAllowedError' ? 'Camera permission was denied. Allow access in your browser or upload a QR image.' : error.message || 'Camera unavailable. Upload a QR image instead.'); }
+      }
+    }
+    start();
+    return stop;
+  }, [active]);
+
+  async function uploadQr(event) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (active) onToggle();
+    setReading(true); setError(''); setSuccess('');
+    try { const code = await readQrFile(file); setSuccess(`Event code ${code} found. Select Continue to open the event.`); onScan(code); }
+    catch (error) { setError(error.message || 'Could not read this QR image. Please choose another.'); }
+    finally { setReading(false); }
+  }
+  return <div className="editorial-panel self-start">
+    <div className="flex items-start gap-3"><QrCode size={28} className="shrink-0 text-[var(--primary)]" /><div><h2 className="text-xl font-semibold">Open your event with a QR</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Scan the QR shared by your photographer, or upload a saved QR image or screenshot.</p></div></div>
+    <div className="mt-5 flex flex-wrap gap-3"><Button onClick={onToggle} disabled={reading}><Camera className="mr-2" size={18} />{active ? 'Close camera' : 'Scan with camera'}</Button><Button variant="secondary" disabled={reading} onClick={() => fileRef.current?.click()}><ImageUp className="mr-2" size={18} />{reading ? 'Reading QR...' : 'Upload QR image'}</Button></div>
+    <input ref={fileRef} type="file" accept="image/*" className="hidden" aria-label="Upload an event QR image" onChange={uploadQr} />
+    {active ? <div className="relative mt-5 overflow-hidden rounded-2xl bg-black"><video ref={videoRef} autoPlay playsInline muted aria-label="QR camera preview" className="max-h-72 w-full object-contain" />{starting ? <p className="absolute inset-0 flex items-center justify-center bg-black/40 p-4 text-sm text-white">Opening camera...</p> : null}<p className="p-3 text-center text-xs text-white">Keep the full QR code inside the camera view.</p></div> : null}
+    {success ? <p className="mt-4 text-sm text-green-800" role="status">{success}</p> : null}
+    {error ? <p className="mt-4 text-sm text-red-700" role="alert">{error}</p> : null}
+  </div>;
 }
-
-export default QRScannerPanel;
